@@ -51,3 +51,5 @@ Read joint / encoder state.
 Save timestamped joint states.
 Publish joint states to ROS2.
 Record one reproducible demo.
+
+test
