@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+# ROS2
+ros2_ws/build/
+ros2_ws/install/
+ros2_ws/log/
+
+# Data
+data/
+datasets/
+rosbags/
+*.bag
+*.db3
+*.mcap
+
+# Models
+checkpoints/
+*.pt
+*.pth
+*.onnx
+*.engine
+*.safetensors
+
+# Logs
+runs/
+wandb/
+logs/
+
+# Videos / raw images
+*.mp4
+*.avi
+*.mov
+*.jpg
+*.jpeg
+*.png
+
+# Allow documentation assets
+!docs/**/*.jpg
+!docs/**/*.jpeg
+!docs/**/*.png
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
