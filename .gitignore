@@ -48,3 +48,17 @@ logs/
 .DS_Store
 .vscode/
 .idea/
+# ROS 2 generated directories
+ros2_ws/build/
+ros2_ws/install/
+ros2_ws/log/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# ROS bag and runtime data
+*.bag
+*.db3
+*.mcap
