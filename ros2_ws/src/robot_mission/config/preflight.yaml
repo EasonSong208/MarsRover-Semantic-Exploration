@@ -1,0 +1,5 @@
+preflight:
+  ros__parameters:
+    discovery_wait_sec: 2.0
+    service_timeout_sec: 2.0
+    tf_timeout_sec: 2.0
