@@ -1,0 +1,10 @@
+# Copy this file to a name matching configs/local.* for machine-local settings.
+# Do not place credentials, private keys, or secrets in committed configuration.
+
+machine:
+  role: development-or-deployment
+  ros_domain_id: 0
+
+robot:
+  platform: hiwonder
+  onboard_computer: jetson-orin-nx-16gb
