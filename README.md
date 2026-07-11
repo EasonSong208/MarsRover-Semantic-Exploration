@@ -5,7 +5,16 @@ This repository contains the bringup, logging, ROS2 integration, and learning pi
 
 ## Current Goal
 
-M0: Robot bringup and joint-state observation.
+M1: Complete an approximately 20 m closed-loop route, return near the start,
+and use a color marker for final visual homing.
+
+The current engineering task is to stabilize interfaces and staged verification;
+it is not yet the final 20 m motion test. See:
+
+- [Project context](docs/PROJECT_CONTEXT.md)
+- [Current status](docs/CURRENT_STATUS.md)
+- [Roadmap](docs/ROADMAP.md)
+- [M1 test plan](docs/M1_20M_RETURN_HOME.md)
 
 ## Hardware
 
@@ -38,7 +47,7 @@ tests/          Basic tests
 ```
 
 
-# First Milestone
+## First Milestone
 
 M0: Make the robot observable.
 
@@ -51,5 +60,3 @@ Read joint / encoder state.
 Save timestamped joint states.
 Publish joint states to ROS2.
 Record one reproducible demo.
-
-test
