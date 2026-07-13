@@ -93,3 +93,14 @@ ros2 run robot_mission out_and_back_test --ros-args \
 Only after reviewing the complete stop, odometry, cross-track and final-error logs
 at each distance may testing progress to 3 m, 5 m and finally 10 m by changing only
 `distance_m`. Never begin with the 10 m default.
+
+## Minimal bringup
+
+`launch/minimal_bringup.launch.py` is the statically audited base/sensor
+composition. It excludes joystick, servo controller, `init_pose`, application
+demos, Nav2 and mission executables; camera is disabled by default. The launch is
+still hardware-facing because it initializes the controller board, so do not run
+it merely to inspect interfaces or without the required onsite approval.
+
+Its exact composition, defaults, exclusions and remaining shutdown risks are in
+`docs/minimal_bringup_design.md` and `docs/controller_shutdown_safety.md`.
