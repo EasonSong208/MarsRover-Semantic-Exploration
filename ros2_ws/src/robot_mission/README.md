@@ -104,3 +104,15 @@ it merely to inspect interfaces or without the required onsite approval.
 
 Its exact composition, defaults, exclusions and remaining shutdown risks are in
 `docs/minimal_bringup_design.md` and `docs/controller_shutdown_safety.md`.
+
+## Gated RGB-D RTAB-Map bringup
+
+`rgbd_rtabmap_bringup.launch.py` composes the no-LiDAR camera, external odometry,
+fixed-arm TF and RTAB-Map path. It defaults `fixed_pose_confirmed:=false`; in that
+state the initial read-only gate exits before any hardware-facing include starts.
+Do not set it true unless the arm physically matches the documented vendor
+`horizontal` pose and the ROS domain is clear of duplicate bringup nodes.
+
+The launch never passes RTAB-Map `-d`, so its configurable database is not deleted
+on startup. See `docs/static_camera_tf_provenance.md` and
+`docs/rgbd_rtabmap_bringup_design.md` before use.

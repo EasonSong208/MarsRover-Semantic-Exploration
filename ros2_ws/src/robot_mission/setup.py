@@ -30,6 +30,7 @@ setup(
             'motion_smoke_test = robot_mission.motion_smoke_test:main',
             'out_and_back_test = robot_mission.out_and_back_test:main',
             'preflight = robot_mission.preflight:main',
+            'rgbd_rtabmap_preflight = robot_mission.rgbd_rtabmap_preflight:main',
             'turn_step_test = robot_mission.turn_step_test:main',
         ],
     },

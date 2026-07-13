@@ -58,6 +58,13 @@ has been used for temporary deployment, followed by SHA-256 verification.
   starts LiDAR, joystick, controller/servo and an arm `horizontal` action, deletes
   the default RTAB-Map database, and provides no visual-odometry node; it is blocked
   as the no-LiDAR RGB-D baseline.
+- Vendor `horizontal` action pulses and URDF origins now provide reproducible
+  fixed-pose FK: `base_link -> depth_cam_link` is
+  `(0.090170699, 0, 0.291404055)` m with identity rotation. Physical pose
+  conformance remains an explicit launch-time operator confirmation.
+- A project-owned no-LiDAR RGB-D RTAB-Map launch is implemented with pre-start and
+  ready gates, fixed-arm TF ownership, external `/odom`, and non-destructive
+  database behavior. It has not passed stationary runtime validation.
 
 ## Current interfaces
 
@@ -80,10 +87,10 @@ has been used for temporary deployment, followed by SHA-256 verification.
    killing a process is not accepted as a stop mechanism.
 3. Vendor `odom_publisher` shutdown does not itself guarantee a motor-zero command.
 4. Duplicate bringup can create competing hardware, camera, TF and command paths.
-5. The audited RGB-D TF graph is split at arm joints `joint1` through `joint4`
-   because `/joint_states` has no publisher. RGB, depth and cloud visual correctness
-   also remain manually unverified.
-6. The vendor RTAB-Map entry is not a safe no-LiDAR RGB-D baseline: it composes
+5. The fixed camera transform is valid only when the physical arm exactly matches
+   `vendor_horizontal`; servo zero, backlash, sag and mounting tolerances remain.
+   RGB, depth and cloud visual correctness also remain manually unverified.
+6. The vendor RTAB-Map entry remains unsafe: it composes
    motion-capable and LiDAR paths, deletes its default database, and has no visual
    odometry node or safe top-level disable arguments.
 7. M1-A deployment parity with the Jetson is not recorded after the latest local
@@ -98,11 +105,11 @@ has been used for temporary deployment, followed by SHA-256 verification.
 2. Build and test `robot_mission` on Jetson without running the mission.
 3. Run `out_and_back_test` with its default `confirmed:=false`; it must print the
    plan and create no publisher, subscription or timer.
-4. Resolve authoritative arm joint-state/TF ownership, then repeat both
-   base-to-camera TF checks and complete the manual RGB, depth and cloud views.
-5. Design and statically review a project-owned observation-only RGB-D RTAB-Map
-   wrapper before any SLAM runtime test; exclude LiDAR, joystick, arm actions,
-   duplicate controller bringup and database deletion.
+4. Clear duplicate external DDS participants, physically verify
+   `vendor_horizontal`, then run the new launch's pre-start and ready gates in a
+   stationary, hardware-supervised session.
+5. Repeat base-to-camera TF checks and complete manual RGB, depth, cloud and map
+   views without chassis or arm motion.
 6. Only after a fresh physical-motion approval, clear-area check and stop plan,
    run M1-A at 1 m. Review physical displacement, turn, zero cleanup, odometry and
    logs before progressing through 3 m, 5 m and 10 m.
