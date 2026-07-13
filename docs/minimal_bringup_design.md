@@ -15,6 +15,7 @@ is not permission to move the robot. This round did not execute the launch.
 | `enable_imu` | `true` | Include calibration and Madgwick filter; raw IMU still originates in the always-required board node |
 | `enable_odom` | `true` | Start command-integrating `odom_publisher` |
 | `enable_ekf` | `true` | Fuse `odom_raw` and `imu`, publish `/odom` and TF |
+| `fixed_arm_pose` | `false` | Replace the vendor description include with the same vendor Xacro plus RSP only; fixed joint TF must be supplied by an audited owner |
 
 `enable_ekf:=true` assumes both IMU and odometry inputs are enabled. Disabling an
 input while leaving EKF enabled is a diagnostic configuration, not a readiness
@@ -47,6 +48,11 @@ The four include files above were recursively inspected. Vendor
 `navigation.launch.py` and `slam/include/robot.launch.py` are deliberately not
 included because their composition is broader and can bring in servo, joystick or
 initialization actions.
+
+In `fixed_arm_pose:=true` mode, the robot-description include is not used because
+its `joint_state_publisher` publishes zero default angles. The project starts only
+`robot_state_publisher` from the same installed vendor Xacro, allowing the audited
+RGB-D launch to own the four fixed arm-joint TF edges without duplication.
 
 ## Default exclusions
 

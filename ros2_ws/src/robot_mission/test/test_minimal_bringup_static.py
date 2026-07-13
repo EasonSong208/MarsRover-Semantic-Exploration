@@ -13,6 +13,7 @@ EXPECTED_ARGUMENTS = {
     'enable_imu': 'true',
     'enable_odom': 'true',
     'enable_ekf': 'true',
+    'fixed_arm_pose': 'false',
 }
 
 
@@ -64,6 +65,15 @@ def test_only_recursively_audited_vendor_launches_are_included():
         and isinstance(node.args[1], ast.Constant)
     }
     assert filenames == allowed
+
+
+def test_fixed_arm_mode_owns_rsp_without_joint_state_publisher():
+    source = LAUNCH.read_text(encoding='utf-8')
+    assert "condition=UnlessCondition(fixed_arm_pose)" in source
+    assert "condition=IfCondition(fixed_arm_pose)" in source
+    assert "package='robot_state_publisher'" in source
+    assert "executable='joint_state_publisher'" not in source
+    assert "Command(['xacro ', description_path])" in source
 
 
 def test_forbidden_nodes_and_launches_are_absent():

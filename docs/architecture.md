@@ -102,8 +102,12 @@ Dabai RGB-D -> peripherals/depth_camera.launch.py
 
 These are runtime-observed endpoints. Depth is hardware-aligned to color; the
 statically suggested `/depth_cam/depth_registered/points` was absent. The camera
-tree is not yet connected to the chassis because the four arm-joint transforms are
-missing; see `rgbd_chain_audit.md` for evidence and remaining visual checks.
+tree was disconnected in the original audit because four arm-joint transforms were
+missing. For `vendor_horizontal`, the project RGB-D launch suppresses the vendor
+zero-default joint-state publisher and supplies those four audited transforms as
+static edges. Vendor RSP retains fixed-URDF ownership and the driver retains camera
+optical-frame ownership. A two-phase gate checks graph uniqueness, sensor frames
+and the completed TF chain before RTAB-Map starts.
 
 ## Minimal bringup boundary
 
