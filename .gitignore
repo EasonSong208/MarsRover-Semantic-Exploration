@@ -52,6 +52,9 @@ checkpoints/
 *.engine
 *.safetensors
 
+# Local vendor reference bundle (large binary PDFs; inventory is kept in docs/)
+references/official/*.pdf
+
 # Videos and raw images; documentation assets may be committed intentionally
 *.mp4
 *.avi
