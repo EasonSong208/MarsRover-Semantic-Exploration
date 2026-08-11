@@ -1,0 +1,64 @@
+wheel_slip_monitor:
+  ros__parameters:
+    # Independent expected/observed motion inputs.
+    odom_raw_topic: odom_raw
+    imu_gyro_topic: imu_corrected
+    imu_orientation_topic: imu
+    rf2o_topic: odom_rf2o
+    command_topic: /cmd_vel
+
+    check_rate: 20.0
+    data_timeout: 0.50
+    maximum_sample_gap: 0.15
+
+    rotation_window: 0.35
+    rotation_min_expected_deg: 5.0
+    rotation_abs_error_deg: 3.0
+    rotation_rel_error: 0.35
+    rotation_confirmations: 3
+
+    linear_window: 0.60
+    linear_min_expected: 0.04
+    linear_abs_error: 0.04
+    linear_rel_error: 0.40
+    lateral_abs_error: 0.035
+    straight_max_expected_yaw_deg: 6.0
+    linear_confirmations: 3
+
+    # Tilt is an independent degradation/safety event. It is not labelled slip.
+    tilt_enter_deg: 8.0
+    tilt_exit_deg: 5.0
+    tilt_stop_deg: 15.0
+    stop_on_excessive_tilt: true
+
+    # Keep distorted/high-rate rotation scans away from SLAM.
+    slam_max_expected_yaw_rate: 0.35
+    slam_max_observed_yaw_rate: 0.45
+    slam_resume_stable_time: 0.80
+
+    cancel_nav2_on_trip: true
+    nav2_cancel_services:
+      - /navigate_to_pose/_action/cancel_goal
+      - /navigate_through_poses/_action/cancel_goal
+
+scan_safety_gate:
+  ros__parameters:
+    input_topic: scan
+    local_topic: scan_local
+    slam_topic: scan_slam
+    slam_allow_topic: /safety/slam_scan_allowed
+    local_max_range: 0.40
+    allow_state_timeout: 0.50
+
+cmd_vel_safety_gate:
+  ros__parameters:
+    input_topic: /cmd_vel
+    output_topic: /controller/cmd_vel
+    stop_topic: /safety/stop_requested
+    blocked_topic: /safety/cmd_gate_blocked
+    input_timeout: 0.30
+    safety_state_timeout: 0.50
+    publish_rate: 50.0
+    max_linear_x: 0.26
+    max_linear_y: 0.20
+    max_angular_z: 1.00
