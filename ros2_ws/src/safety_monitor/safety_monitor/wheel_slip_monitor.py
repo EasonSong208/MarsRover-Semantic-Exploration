@@ -54,6 +54,7 @@ class WheelSlipMonitor(Node):
         defaults = {
             'odom_raw_topic': 'odom_raw',
             'imu_gyro_topic': 'imu_corrected',
+            'gyro_z_sign': -1.0,
             'imu_orientation_topic': 'imu',
             'rf2o_topic': 'odom_rf2o',
             'command_topic': '/cmd_vel',
@@ -122,6 +123,11 @@ class WheelSlipMonitor(Node):
             slam_resume_stable_time=self.get_parameter('slam_resume_stable_time').value,
         )
         self.detector = SlipDetectorCore(config)
+        self.gyro_z_sign = float(self.get_parameter('gyro_z_sign').value)
+        if self.gyro_z_sign not in (-1.0, 1.0):
+            raise ValueError('gyro_z_sign must be either -1.0 or 1.0')
+        self.raw_gyro_z = math.nan
+        self.corrected_gyro_z = math.nan
         self.tilt_reference_roll = radians(
             self.get_parameter('tilt_reference_roll_deg').value
         )
@@ -173,8 +179,10 @@ class WheelSlipMonitor(Node):
         self.create_timer(1.0 / rate, self.check)
         self.get_logger().info(
             'Motion mismatch monitor started: odom_raw vs calibrated gyro; '
-            'RF2O translation enabled; level reference roll=%.2f deg pitch=%.2f deg'
+            'RF2O translation enabled; gyro_z_sign=%.1f; '
+            'level reference roll=%.2f deg pitch=%.2f deg'
             % (
+                self.gyro_z_sign,
                 math.degrees(self.tilt_reference_roll),
                 math.degrees(self.tilt_reference_pitch),
             )
@@ -198,8 +206,10 @@ class WheelSlipMonitor(Node):
         )
 
     def on_gyro(self, msg: Imu):
+        self.raw_gyro_z = msg.angular_velocity.z
+        self.corrected_gyro_z = self.gyro_z_sign * self.raw_gyro_z
         self.detector.add_gyro(
-            _stamp_seconds(msg, self.now_seconds()), msg.angular_velocity.z
+            _stamp_seconds(msg, self.now_seconds()), self.corrected_gyro_z
         )
 
     def on_orientation(self, msg: Imu):
@@ -278,6 +288,9 @@ class WheelSlipMonitor(Node):
                 'reference_roll_deg': math.degrees(self.tilt_reference_roll),
                 'reference_pitch_deg': math.degrees(self.tilt_reference_pitch),
                 'relative_tilt_deg': math.degrees(self.relative_tilt),
+                'gyro_z_sign': self.gyro_z_sign,
+                'raw_gyro_z_rad_s': self.raw_gyro_z,
+                'corrected_gyro_z_rad_s': self.corrected_gyro_z,
             },
             'effects': {
                 'stop_requested': result.stop_requested,
@@ -328,6 +341,9 @@ class WheelSlipMonitor(Node):
             'reference_roll_deg': f'{math.degrees(self.tilt_reference_roll):.3f}',
             'reference_pitch_deg': f'{math.degrees(self.tilt_reference_pitch):.3f}',
             'relative_tilt_deg': f'{math.degrees(self.relative_tilt):.3f}',
+            'gyro_z_sign': f'{self.gyro_z_sign:.1f}',
+            'raw_gyro_z_rad_s': f'{self.raw_gyro_z:.6f}',
+            'corrected_gyro_z_rad_s': f'{self.corrected_gyro_z:.6f}',
         }
         return [KeyValue(key=key, value=value) for key, value in pairs.items()]
 

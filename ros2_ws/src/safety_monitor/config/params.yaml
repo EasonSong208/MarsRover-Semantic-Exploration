@@ -3,6 +3,8 @@ wheel_slip_monitor:
     # Independent expected/observed motion inputs.
     odom_raw_topic: odom_raw
     imu_gyro_topic: imu_corrected
+    # This robot's calibrated IMU yaw axis is opposite to odom_raw yaw.
+    gyro_z_sign: -1.0
     imu_orientation_topic: imu
     rf2o_topic: odom_rf2o
     command_topic: /cmd_vel
