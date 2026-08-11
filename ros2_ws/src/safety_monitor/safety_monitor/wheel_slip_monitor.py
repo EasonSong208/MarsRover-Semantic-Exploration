@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """ROS adapter for timestamp-aligned robot motion mismatch detection."""
 
+from datetime import datetime, timezone
+import json
 import math
+import os
 
 from action_msgs.srv import CancelGoal
 from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
@@ -13,7 +16,12 @@ from sensor_msgs.msg import Imu
 from std_msgs.msg import Bool, String
 from std_srvs.srv import Trigger
 
-from safety_monitor.slip_detection_core import DetectorConfig, DetectorState, SlipDetectorCore
+from safety_monitor.slip_detection_core import (
+    DetectorConfig,
+    DetectorState,
+    SlipDetectorCore,
+    relative_tilt_angle,
+)
 
 
 def _stamp_seconds(message, fallback: float) -> float:
@@ -71,11 +79,14 @@ class WheelSlipMonitor(Node):
             'tilt_enter_deg': 8.0,
             'tilt_exit_deg': 5.0,
             'tilt_stop_deg': 15.0,
+            'tilt_reference_roll_deg': -177.0,
+            'tilt_reference_pitch_deg': -0.2,
             'stop_on_excessive_tilt': True,
             'slam_max_expected_yaw_rate': 0.35,
             'slam_max_observed_yaw_rate': 0.45,
             'slam_resume_stable_time': 0.80,
             'cancel_nav2_on_trip': True,
+            'event_log_path': '~/.ros/safety_monitor/slip_events.jsonl',
             'nav2_cancel_services': [
                 '/navigate_to_pose/_action/cancel_goal',
                 '/navigate_through_poses/_action/cancel_goal',
@@ -111,8 +122,19 @@ class WheelSlipMonitor(Node):
             slam_resume_stable_time=self.get_parameter('slam_resume_stable_time').value,
         )
         self.detector = SlipDetectorCore(config)
+        self.tilt_reference_roll = radians(
+            self.get_parameter('tilt_reference_roll_deg').value
+        )
+        self.tilt_reference_pitch = radians(
+            self.get_parameter('tilt_reference_pitch_deg').value
+        )
+        self.raw_roll = math.nan
+        self.raw_pitch = math.nan
+        self.relative_tilt = math.nan
         self.last_state = None
         self.cancel_sent = False
+        self.last_cancel_attempt_time = float('-inf')
+        self.cancel_unavailable_warned = False
 
         self.create_subscription(
             Odometry, self.get_parameter('odom_raw_topic').value, self.on_odom_raw, 50
@@ -141,13 +163,21 @@ class WheelSlipMonitor(Node):
         self.create_service(Trigger, '/safety/reset', self.on_reset)
 
         self.cancel_nav2_on_trip = self.get_parameter('cancel_nav2_on_trip').value
+        self.event_log_path = os.path.expanduser(
+            self.get_parameter('event_log_path').value
+        )
         cancel_services = self.get_parameter('nav2_cancel_services').value
         self.nav_cancel_clients = [self.create_client(CancelGoal, name) for name in cancel_services]
 
         rate = float(self.get_parameter('check_rate').value)
         self.create_timer(1.0 / rate, self.check)
         self.get_logger().info(
-            'Motion mismatch monitor started: odom_raw vs calibrated gyro; RF2O translation enabled'
+            'Motion mismatch monitor started: odom_raw vs calibrated gyro; '
+            'RF2O translation enabled; level reference roll=%.2f deg pitch=%.2f deg'
+            % (
+                math.degrees(self.tilt_reference_roll),
+                math.degrees(self.tilt_reference_pitch),
+            )
         )
 
     def now_seconds(self) -> float:
@@ -179,7 +209,16 @@ class WheelSlipMonitor(Node):
         if msg.orientation_covariance[0] == -1.0 or norm < 0.5:
             return
         roll, pitch = _roll_pitch_from_quaternion(q)
-        self.detector.set_orientation(stamp, roll, pitch)
+        tilt = relative_tilt_angle(
+            roll,
+            pitch,
+            self.tilt_reference_roll,
+            self.tilt_reference_pitch,
+        )
+        self.raw_roll = roll
+        self.raw_pitch = pitch
+        self.relative_tilt = tilt
+        self.detector.set_orientation(stamp, tilt, 0.0)
 
     def on_command(self, msg: Twist):
         self.detector.set_command(
@@ -192,12 +231,18 @@ class WheelSlipMonitor(Node):
         response.message = reason
         if success:
             self.cancel_sent = False
+            self.last_cancel_attempt_time = float('-inf')
+            self.cancel_unavailable_warned = False
             self.get_logger().warning('Safety latch reset; a fresh Nav2 goal is required')
         return response
 
     def cancel_nav2_goals(self):
         if not self.cancel_nav2_on_trip or self.cancel_sent:
-            return
+            return 'disabled' if not self.cancel_nav2_on_trip else 'already_sent'
+        now = self.now_seconds()
+        if now - self.last_cancel_attempt_time < 0.5:
+            return 'rate_limited'
+        self.last_cancel_attempt_time = now
         request = CancelGoal.Request()
         any_sent = False
         for client in self.nav_cancel_clients:
@@ -205,11 +250,65 @@ class WheelSlipMonitor(Node):
                 client.call_async(request)
                 any_sent = True
         self.cancel_sent = any_sent
-        if not any_sent:
+        if any_sent:
+            self.cancel_unavailable_warned = False
+        elif not self.cancel_unavailable_warned:
             self.get_logger().warning('Safety tripped, but Nav2 cancel services are not ready')
+            self.cancel_unavailable_warned = True
+        return 'sent' if any_sent else 'services_unavailable'
 
-    @staticmethod
-    def _diagnostic_values(result):
+    def record_trip_event(self, result, nav2_cancel_effect: str):
+        event = {
+            'wall_time_utc': datetime.now(timezone.utc).isoformat(),
+            'ros_stamp': result.stamp,
+            'state': result.state.value,
+            'reason': result.reason,
+            'measurements': {
+                'expected_yaw_rad': result.expected_yaw,
+                'observed_yaw_rad': result.observed_yaw,
+                'yaw_error_rad': result.yaw_error,
+                'expected_forward_m': result.expected_forward,
+                'observed_forward_m': result.observed_forward,
+                'longitudinal_error_m': result.longitudinal_error,
+                'lateral_error_m': result.lateral_error,
+                'tilted': result.tilted,
+                'excessive_tilt': result.excessive_tilt,
+                'raw_roll_deg': math.degrees(self.raw_roll),
+                'raw_pitch_deg': math.degrees(self.raw_pitch),
+                'reference_roll_deg': math.degrees(self.tilt_reference_roll),
+                'reference_pitch_deg': math.degrees(self.tilt_reference_pitch),
+                'relative_tilt_deg': math.degrees(self.relative_tilt),
+            },
+            'effects': {
+                'stop_requested': result.stop_requested,
+                'slam_scan_allowed': result.slam_scan_allowed,
+                'cmd_vel_gate_expected': 'blocked' if result.stop_requested else 'open',
+                'nav2_cancel': nav2_cancel_effect,
+            },
+        }
+        try:
+            directory = os.path.dirname(self.event_log_path)
+            if directory:
+                os.makedirs(directory, exist_ok=True)
+            with open(self.event_log_path, 'a', encoding='utf-8') as stream:
+                stream.write(json.dumps(event, ensure_ascii=False, sort_keys=True) + '\n')
+            self.get_logger().error(
+                'Slip event recorded: reason=%s stop=%s slam_scan_allowed=%s '
+                'nav2_cancel=%s path=%s'
+                % (
+                    result.reason,
+                    result.stop_requested,
+                    result.slam_scan_allowed,
+                    nav2_cancel_effect,
+                    self.event_log_path,
+                )
+            )
+        except OSError as error:
+            self.get_logger().error(
+                'Failed to persist slip event at %s: %s' % (self.event_log_path, error)
+            )
+
+    def _diagnostic_values(self, result):
         pairs = {
             'state': result.state.value,
             'reason': result.reason,
@@ -224,6 +323,11 @@ class WheelSlipMonitor(Node):
             'observed_forward_m': f'{result.observed_forward:.6f}',
             'longitudinal_error_m': f'{result.longitudinal_error:.6f}',
             'lateral_error_m': f'{result.lateral_error:.6f}',
+            'raw_roll_deg': f'{math.degrees(self.raw_roll):.3f}',
+            'raw_pitch_deg': f'{math.degrees(self.raw_pitch):.3f}',
+            'reference_roll_deg': f'{math.degrees(self.tilt_reference_roll):.3f}',
+            'reference_pitch_deg': f'{math.degrees(self.tilt_reference_pitch):.3f}',
+            'relative_tilt_deg': f'{math.degrees(self.relative_tilt):.3f}',
         }
         return [KeyValue(key=key, value=value) for key, value in pairs.items()]
 
@@ -251,7 +355,8 @@ class WheelSlipMonitor(Node):
         self.slam_allow_pub.publish(Bool(data=result.slam_scan_allowed))
         self.publish_diagnostics(result)
 
-        if result.state != self.last_state:
+        state_changed = result.state != self.last_state
+        if state_changed:
             message = f'safety state {self.last_state} -> {result.state.value}: {result.reason}'
             if result.state == DetectorState.TRIPPED:
                 self.get_logger().error(message)
@@ -260,8 +365,10 @@ class WheelSlipMonitor(Node):
             else:
                 self.get_logger().info(message)
             self.last_state = result.state
-        if result.stop_requested:
-            self.cancel_nav2_goals()
+        if result.state == DetectorState.TRIPPED:
+            nav2_cancel_effect = self.cancel_nav2_goals()
+            if state_changed:
+                self.record_trip_event(result, nav2_cancel_effect)
 
 
 def main():

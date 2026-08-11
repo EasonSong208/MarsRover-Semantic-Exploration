@@ -5,6 +5,7 @@ from safety_monitor.slip_detection_core import (
     DetectorState,
     SlipDetectorCore,
     normalize_angle,
+    relative_tilt_angle,
 )
 
 
@@ -28,6 +29,34 @@ def feed_rotation(detector, start, end, expected_rate, observed_rate, step=0.05)
 def test_normalize_angle_wraps_both_directions():
     assert math.isclose(normalize_angle(3.0 * math.pi), -math.pi)
     assert math.isclose(normalize_angle(-1.5 * math.pi), 0.5 * math.pi)
+
+
+def test_relative_tilt_accepts_inverted_level_imu_mounting():
+    reference_roll = math.radians(-177.0)
+    reference_pitch = math.radians(-0.2)
+    assert relative_tilt_angle(
+        reference_roll,
+        reference_pitch,
+        reference_roll,
+        reference_pitch,
+    ) < 1.0e-6
+    normal_sample = relative_tilt_angle(
+        math.radians(-175.3),
+        math.radians(-0.65),
+        reference_roll,
+        reference_pitch,
+    )
+    assert normal_sample < math.radians(3.0)
+
+
+def test_relative_tilt_detects_motion_away_from_calibrated_level():
+    tilt = relative_tilt_angle(
+        math.radians(-157.0),
+        math.radians(-0.2),
+        math.radians(-177.0),
+        math.radians(-0.2),
+    )
+    assert math.isclose(tilt, math.radians(20.0), abs_tol=math.radians(0.1))
 
 
 def test_matching_rotation_arms_without_trip():

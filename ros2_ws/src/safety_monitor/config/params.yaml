@@ -29,6 +29,9 @@ wheel_slip_monitor:
     tilt_enter_deg: 8.0
     tilt_exit_deg: 5.0
     tilt_stop_deg: 15.0
+    # Calibrated from 4037 normal-level /imu samples on this robot.
+    tilt_reference_roll_deg: -177.0
+    tilt_reference_pitch_deg: -0.2
     stop_on_excessive_tilt: true
 
     # Keep distorted/high-rate rotation scans away from SLAM.

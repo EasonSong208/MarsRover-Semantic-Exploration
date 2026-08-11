@@ -19,6 +19,31 @@ def normalize_angle(angle: float) -> float:
     return (angle + math.pi) % (2.0 * math.pi) - math.pi
 
 
+def relative_tilt_angle(
+    roll: float,
+    pitch: float,
+    reference_roll: float,
+    reference_pitch: float,
+) -> float:
+    """Return tilt relative to the calibrated level gravity direction.
+
+    Comparing gravity vectors makes this independent of yaw and handles level
+    IMUs whose mounting convention reports roll near +/-180 degrees.
+    """
+    current = (
+        -math.sin(pitch),
+        math.sin(roll) * math.cos(pitch),
+        math.cos(roll) * math.cos(pitch),
+    )
+    reference = (
+        -math.sin(reference_pitch),
+        math.sin(reference_roll) * math.cos(reference_pitch),
+        math.cos(reference_roll) * math.cos(reference_pitch),
+    )
+    dot = sum(a * b for a, b in zip(current, reference))
+    return math.acos(max(-1.0, min(1.0, dot)))
+
+
 @dataclass(frozen=True)
 class Pose2D:
     stamp: float
