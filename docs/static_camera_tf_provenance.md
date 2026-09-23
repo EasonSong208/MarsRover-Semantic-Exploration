@@ -2,118 +2,148 @@
 
 Last updated: 2026-07-13
 
-## Scope and validity
+## Pose contract
 
-The only supported mapping pose is the vendor action group `horizontal`, renamed
-`vendor_horizontal` in project configuration. The arm must be physically placed
-in this pose before launch and must not move while SLAM is running. Any arm motion
-immediately invalidates this transform; stop SLAM and restore the pose before
-continuing.
-
-The numeric transform is source-derived and reproducible. Runtime conformance of
-the physical arm to `vendor_horizontal` was not asserted in this round because no
-servo action or feedback node was started.
-
-## Pose evidence and joint angles
-
-A read-only SQLite query of
-`/home/ubuntu/software/arm_pc/ActionGroups/horizontal.d6a` returned one row:
+The first supported fixed SLAM pose is:
 
 ```text
-Time=1500 ms, Servo1=500, Servo2=750, Servo3=0, Servo4=375,
-Servo5=500, Servo10=500
+SLAM_POSE_V1 = vendor_init
 ```
 
-The action loader maps these columns directly to pulse-unit servo commands
-(`servo_controller/action_group_controller.py:27-55`). The ROS joint-state
-conversion uses a 500-centred, reversed 240-degree/1000-pulse mapping
-(`joint_position_controller.py:11-55`):
+`vendor_init` is the `init.d6a` pose automatically requested by the deployed
+vendor boot chain. It is the default `camera_pose` because it matches the robot's
+normal software startup target and does not require claiming that the visibly
+similar `horizontal.d6a` pose was reached.
+
+Two named configurations are retained:
+
+| Pose | Action | Servo1..4 | Joint1..4 | Role |
+|---|---|---|---|---|
+| `vendor_init` | `init.d6a`, 1000 ms | `500,765,15,150` | `0,-63.6,116.4,84.0 deg` | `SLAM_POSE_V1`, default |
+| `vendor_horizontal` | `horizontal.d6a`, 1500 ms | `500,750,0,375` | `0,-60,120,30 deg` | optional, non-default |
+
+`vendor_horizontal` is valid only after that exact action has been played and an
+operator has confirmed the physical pose. Merely booting the robot does not meet
+that condition.
+
+Neither pose is automatically verified from real servo feedback. The vendor
+controller's normal `servo_states` path is a sent-target cache, not measured
+position feedback, and no uniquely owned hardware feedback node was available in
+the audit. `fixed_pose_confirmed=true` therefore means manual confirmation only.
+
+## Evidence and pulse conversion
+
+Read-only SQLite inspection returned:
+
+```text
+init.d6a:       Time=1000, Servo1=500, Servo2=765, Servo3=15, Servo4=150
+horizontal.d6a: Time=1500, Servo1=500, Servo2=750, Servo3=0,  Servo4=375
+```
+
+The boot path is:
+
+```text
+start_app_node.service
+  -> bringup.launch.py
+  -> init_pose.launch.py action_name=init
+  -> init_pose
+  -> ActionGroupController
+  -> init.d6a
+```
+
+For joints 1 through 4, the deployed controller uses a 500-centred reversed
+240-degree/1000-pulse conversion:
 
 ```text
 q = (500 - pulse) * ((240 / 360) * 2*pi / 1000)
 ```
 
-| URDF joint | Pulse | Angle (rad) | Angle (deg) |
-|---|---:|---:|---:|
-| `joint1` | 500 | 0 | 0 |
-| `joint2` | 750 | -1.047197551196598 | -60 |
-| `joint3` | 0 | 2.094395102393195 | 120 |
-| `joint4` | 375 | 0.523598775598299 | 30 |
-
-The separate vendor kinematics map expresses joints 2 and 4 with a -90-degree DH
-offset. Its pulse results are therefore -150 and -60 degrees respectively; adding
-the documented model offset gives the same URDF angles above. Pulses were not
-treated directly as radians.
-
-## URDF chain and forward kinematics
-
-Source joint origins:
-
-- `connect.urdf.xacro:4-20`: `base_link -> link1`, joint1 axis `0 0 -1`;
-- `arm.urdf.xacro:127-143`: `servo_link1 -> link2`, joint2 axis `0 1 0`;
-- `arm.urdf.xacro:181-197`: `link2 -> link3`, joint3 axis `0 1 0`;
-- `arm.urdf.xacro:235-251`: `link3 -> link4`, joint4 axis `0 1 0`;
-- `depth_camera.urdf.xacro:40-105`: fixed camera connector and
-  `camera_connect_link -> depth_cam_link`.
-
-Applying each URDF origin followed by its joint-axis rotation gives:
+This gives `vendor_init` radians:
 
 ```text
-base_link
-  -> link1              q1 =   0 deg
-  -> servo_link1        fixed identity
-  -> link2              q2 = -60 deg
-  -> link3              q3 = 120 deg
-  -> link4              q4 =  30 deg
-  -> camera_connect_link fixed
-  -> depth_cam_link      fixed
+(0, -1.110029404268394, 2.031563249321400, 1.466076571675237)
 ```
 
-Final `base_link -> depth_cam_link`:
+## Full URDF forward kinematics
+
+`robot_mission.fixed_camera_tf` multiplies the complete deployed URDF chain. It
+does not modify the old horizontal transform by the 54-degree joint4 difference:
+
+```text
+base_link -> link1 -> servo_link1 -> link2 -> link3 -> link4
+          -> camera_connect_link -> depth_cam_link
+```
+
+Evidence sources:
+
+- `connect.urdf.xacro:4-20`: `base_link -> link1`, joint1 axis `0 0 -1`;
+- `arm.urdf.xacro:127-251`: joint2, joint3 and joint4 origins and axes;
+- `depth_camera.urdf.xacro:40-105`: camera connector and depth-camera mount;
+- `joint_position_controller.py:11-55`: pulse conversion and reversed direction.
+
+### `vendor_init` — `SLAM_POSE_V1`
+
+`base_link -> depth_cam_link`:
 
 | Field | Value |
 |---|---:|
-| x | 0.090170699365528 m |
+| x | 0.093787390048285 m |
 | y | 0 m |
-| z | 0.291404054800367 m |
-| roll | 0 rad |
-| pitch | 0 rad |
-| yaw | 0 rad |
-| quaternion `(x,y,z,w)` | `(0,0,0,1)` |
+| z | 0.234390577130383 m |
+| roll | 0 rad / 0 deg |
+| pitch | 0.816814089933346 rad / 46.8 deg |
+| yaw | 0 rad / 0 deg |
+| quaternion `(x,y,z,w)` | `(0, 0.397147890634780, 0, 0.917754625683981)` |
 
-The mecanum URDF fixes `base_footprint -> base_link` at
-`(0, 0, 0.116091082157675)` m with zero rotation. Therefore the derived
-`base_footprint -> depth_cam_link` translation is
-`(0.090170699365528, 0, 0.407495136958042)` m, also with zero rotation.
+The fixed URDF edge `base_footprint -> base_link` is
+`(0,0,0.116091082157675)` m. Therefore
+`base_footprint -> depth_cam_link` is:
 
-ROS body axes are x forward, y left and z up. The identity final rotation means
-the physical camera link axes are aligned with `base_link` in this pose. The
-camera driver owns `depth_cam_link -> depth_cam_color_optical_frame`; the prior
-runtime audit observed the optical convention and all RGB/aligned-depth messages
-in `depth_cam_color_optical_frame`. This project does not duplicate that internal
-camera transform.
+```text
+xyz = (0.093787390048285, 0, 0.350481659288058) m
+rpy = (0, 0.816814089933346, 0) rad
+quaternion = (0, 0.397147890634780, 0, 0.917754625683981)
+```
 
-## TF ownership
+### Retained `vendor_horizontal`
 
-The vendor robot-description launch starts `joint_state_publisher`, which publishes
-zero defaults and would conflict with the fixed pose. Fixed-arm mode instead starts
-only `robot_state_publisher` with the same vendor Xacro. The project publishes the
-four missing joint transforms as static edges. Vendor RSP retains ownership of all
-fixed URDF edges, and the camera driver retains ownership of its internal frames.
+The previous full-chain result is preserved as a selectable non-default pose.
 
-A direct static `base_link -> depth_cam_link` edge is deliberately not published:
-it would give `depth_cam_link` two parents because the vendor URDF already owns
-`camera_connect_link -> depth_cam_link`.
+```text
+base_link -> depth_cam_link:
+  xyz = (0.090170699365528, 0, 0.291404054800367) m
+  rpy = (0,0,0) rad
+  quaternion = (0,0,0,1)
 
-## Error sources and runtime gate
+base_footprint -> depth_cam_link:
+  xyz = (0.090170699365528, 0, 0.407495136958042) m
+  rpy = (0,0,0) rad
+  quaternion = (0,0,0,1)
+```
 
-- servo manufacturing zero and linkage assembly tolerances;
-- mechanical backlash or sag;
-- the physical arm not actually matching the database pulses;
-- model-to-hardware mounting tolerances;
-- camera-driver internal extrinsic calibration.
+## Configuration and TF ownership
 
-The launch defaults `fixed_pose_confirmed:=false`, so it refuses hardware bringup
-until an operator confirms the physical pose. The ready gate also requires no
-`/joint_states` publisher and a complete `base_footprint ->
-depth_cam_color_optical_frame` TF before RTAB-Map can start.
+The versioned pose files are:
+
+```text
+config/camera_poses/vendor_init.yaml
+config/camera_poses/vendor_horizontal.yaml
+```
+
+The RGB-D launch loads exactly one file selected by `camera_pose` and publishes
+only that file's four frozen revolute-joint edges. It does not publish a direct
+`base_link -> depth_cam_link` edge, because the vendor robot-state publisher owns
+the intervening fixed URDF edges and `depth_cam_link` must have only one parent.
+The camera driver continues to own its internal optical-frame transforms.
+
+The ready gate compares the resulting runtime `base_link -> depth_cam_link`
+translation and quaternion with the selected YAML. It also rejects a joint-state
+publisher, duplicate graph owners, or a missing base-to-optical chain.
+
+## Accuracy boundary
+
+These values are nominal extrinsics derived from action targets and the vendor
+URDF. They are not a camera-to-base extrinsic calibration result. Unmeasured error
+sources include servo zero, backlash, sag, linkage assembly, camera mounting and
+the camera driver's internal calibration. If the arm moves, stop SLAM immediately;
+do not continue using either fixed transform.

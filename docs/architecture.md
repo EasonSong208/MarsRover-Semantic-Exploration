@@ -100,14 +100,81 @@ Dabai RGB-D -> peripherals/depth_camera.launch.py
              -> depth_cam frames and partial TF
 ```
 
+The semantic interface is isolated in the project-owned `semantic_perception`
+package. The fake source remains available for interface testing; the deployed V3
+source is independent and uses the same downstream contract:
+
+```text
+existing RGB Image -> fake_semantic_node (test only)
+                   \-> pidnet_semantic_node (PIDNet-S hazard5 V3)
+                         -> /semantic/mask (Image, reliable mono8 IDs 0-4)
+                         -> /semantic/info (String, ratios/timing/FPS)
+                         -> /semantic/color + /semantic/overlay (debug Image)
+
+/semantic/mask + aligned PointCloud2 + CameraInfo + /map_cropped
+  -> project-owned semantic_fusion_compat entry
+  -> existing navigation.SemanticObstacleFusion implementation
+  -> /semantic_cost -> existing map_cropper merge path
+```
+
+Neither semantic source starts a camera, publishes TF or exposes an actuation
+interface. The PIDNet launch defaults to the audited Dabai RGB endpoint
+`/depth_cam/rgb/image_raw`; it preserves the 640 x 360 input header and size. The
+compatibility entry overrides only the existing backend's XYZ array conversion so
+Humble's plain `N x 3` result is accepted; projection, confidence and cost-map
+logic remain owned by the existing navigation implementation.
+
+The standalone red-marker experiment consumes the already-running RGB, aligned
+Depth and RGB CameraInfo streams. Two independent bounded nearest-neighbour
+matchers may inspect the same messages; only the selected matcher feeds detection
+and control. Sensor loss is a recoverable observation state. Stale Depth cannot
+produce linear motion, and the experiment never launches a camera or controller.
+
+The guarded variant adds this gate without adding a second vendor control stack:
+
+```text
+camera_pose_guard
+  -> read current Servo1-4 pulse through GetBusServoState
+  -> preload those pulses through SetBusServoState
+  -> enable torque through the same ros_robot_controller owner
+  -> verify torque=1 and bounded position change
+  -> at most one ros_robot_controller_msgs/ServosPosition command by default
+  -> /ros_robot_controller/bus_servo/set_position
+  -> existing ros_robot_controller / STM32 / bus servos
+  -> /camera_pose_ready (Bool, reliable + transient local)
+  -> red_marker_homing final command safety gate
+```
+
+The command is authorized only when `dry_run=false`, `confirmed=true`,
+`arm_torque_confirmed=true`, both vendor arm endpoints have the sole subscriber
+`/ros_robot_controller`, and no other arm-command publisher, `init_pose`,
+joystick or vendor `controller_manager` is present. The set-state publisher check
+enumerates exact namespace-qualified endpoint owners. Its compatibility allowlist
+defaults empty; only the JetRover guarded launch opts in exactly one audited,
+passive `/odom_publisher`. Duplicate, unknown, similarly named or unresolved
+endpoints and graph-query failures keep readiness false. The deployed Mecanum
+vendor source advertises this endpoint for all chassis but calls its publish only
+inside the Ackermann branch. The exception does not permit that node to command
+the arm and does not apply to the position topic. Arming is fail-closed;
+FAULT is terminal and process exit does not unload the servos. The separate
+`camera_pose_guard_only.launch.py` contains no red-marker or chassis node. The
+red-marker path independently defaults `enable_base_motion=false`, which prevents
+creation of its `/cmd_vel` publisher. The guarded launch reuses the same
+`vendor_init.yaml` four-joint TF values as RGB-D mapping;
+it does not publish a competing direct `base_link -> depth_cam_link` edge. Each
+expected `fixed_joint1_tf` through `fixed_joint4_tf` node must appear exactly once
+before the guard can consider the controller path ready.
+
 These are runtime-observed endpoints. Depth is hardware-aligned to color; the
 statically suggested `/depth_cam/depth_registered/points` was absent. The camera
 tree was disconnected in the original audit because four arm-joint transforms were
-missing. For `vendor_horizontal`, the project RGB-D launch suppresses the vendor
-zero-default joint-state publisher and supplies those four audited transforms as
-static edges. Vendor RSP retains fixed-URDF ownership and the driver retains camera
-optical-frame ownership. A two-phase gate checks graph uniqueness, sensor frames
-and the completed TF chain before RTAB-Map starts.
+missing. The project RGB-D launch suppresses the vendor zero-default joint-state
+publisher and supplies exactly four static transforms from the selected named
+camera pose. `vendor_init` is the default `SLAM_POSE_V1`; `vendor_horizontal` is
+retained as a non-default option. Vendor RSP retains fixed-URDF ownership and the
+driver retains camera optical-frame ownership. A two-phase gate checks the pose
+selection, graph uniqueness, sensor frames, nominal camera-link TF and completed
+TF chain before RTAB-Map starts.
 
 ## Minimal bringup boundary
 

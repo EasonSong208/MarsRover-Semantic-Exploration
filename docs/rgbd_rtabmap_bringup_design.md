@@ -7,6 +7,8 @@ Last updated: 2026-07-13
 ```text
 rgbd_rtabmap_bringup.launch.py
   -> pre-start read-only gate
+     -> camera_pose must name an installed audited configuration
+     -> the loaded pose name must match camera_pose
      -> fixed_pose_confirmed must be true
      -> no duplicate controller, EKF, RSP, camera or topic publishers
      -> no LiDAR, scan, joystick, teleop, init_pose or servo nodes
@@ -18,11 +20,12 @@ rgbd_rtabmap_bringup.launch.py
      -> EKF -> /odom
      -> Dabai depth camera
      -> LiDAR explicitly disabled
-  -> four static vendor_horizontal joint transforms
+  -> exactly four static joint transforms from the selected camera_pose
   -> ready read-only gate
      -> unique required nodes and topic publishers
      -> observed odom/RGB/depth/CameraInfo frame IDs
      -> odom -> base and base -> optical TF
+     -> runtime base_link -> depth_cam_link must match the selected pose YAML
      -> no joint-state, scan or prohibited-node publishers
   -> rtabmap_sync/rgbd_sync
   -> rtabmap_slam/rtabmap
@@ -47,10 +50,11 @@ it enables scan subscription, fixes the base frame and passes `-d`.
 
 ## Explicit exclusions
 
-No LiDAR launch, `/scan` filter, joystick, teleop, `init_pose`, `horizontal` action,
-servo controller, Nav2, slam_toolbox or RGB-D visual odometry node is created. The
-first version continues to consume external `/odom`, whose raw source is
-command-integrated and therefore not independent encoder feedback.
+No LiDAR launch, `/scan` filter, joystick, teleop, `init_pose`, action-group
+playback, servo controller, Nav2, slam_toolbox or RGB-D visual odometry node is
+created. The launch never moves the arm. The first version continues to consume
+external `/odom`, whose raw source is command-integrated and therefore not
+independent encoder feedback.
 
 ## Database behavior
 
@@ -62,7 +66,8 @@ automatically delete or clear an existing database.
 
 | Argument | Default | Meaning |
 |---|---|---|
-| `fixed_pose_confirmed` | `false` | Hard gate requiring operator confirmation of `vendor_horizontal` |
+| `camera_pose` | `vendor_init` | Select one installed pose configuration; `vendor_init` is `SLAM_POSE_V1` |
+| `fixed_pose_confirmed` | `false` | Manual confirmation that the arm matches the selected pose |
 | `use_static_camera_tf` | `true` | Publish the four audited fixed joint transforms |
 | `base_frame` | `base_footprint` | RTAB-Map body frame and odometry child |
 | `odom_frame` | `odom` | External odometry frame |
@@ -84,3 +89,11 @@ not running, and `/odom` produced no message during the bounded read-only sample
 
 GUI RGB/depth/map/point-cloud validation remains **MANUAL REQUIRED**. No motion or
 closed-loop mapping was performed.
+
+There is currently no real servo-position feedback loop in this bringup. Startup
+prints the selected pose, expected Servo1-4 targets and expected joint angles.
+The pre-start gate validates the pose name and manual confirmation; the ready gate
+then compares the composed runtime camera-link TF with the selected YAML. This
+checks configuration/TF consistency, not physical arm conformance. Move the arm
+only in a separately authorized operation and stop SLAM immediately if it moves
+while the fixed transform is in use.
