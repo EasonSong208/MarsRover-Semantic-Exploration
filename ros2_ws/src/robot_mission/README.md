@@ -1,5 +1,63 @@
 # robot_mission
 
+## Standalone red-marker homing experiment
+
+`red_marker_homing_test` is an isolated RGB-D perception and bounded-motion
+experiment. Its launch file starts only this node: it never starts a camera,
+controller, robot description, TF, arm, joystick, Nav2, LiDAR, or RTAB-Map.
+Defaults are `dry_run:=true`, `confirmed:=false`, and
+`enable_base_motion:=false`. The last setting independently prevents creation of
+the `/cmd_vel` publisher even if the other two are enabled. See
+`docs/red_marker_homing_test_plan.md` for the safety gates and
+offline workflow. RGB/Depth pairing supports bounded `direct_slop` and
+`fixed_offset` modes; comparison diagnostics never invoke control twice. Missing
+or stale Depth is recoverable and always suppresses linear motion.
+
+## Guarded navigation-camera pose
+
+`camera_guarded_red_marker_homing.launch.py` adds a project-owned
+`camera_pose_guard`, the four existing `vendor_init` fixed-joint TF edges and the
+red-marker node. It does not start a controller, camera, joystick, Nav2,
+`init_pose`, action-group player or vendor demo. The guard waits for the already
+running vendor board controller and refuses a second arm-command owner.
+It also requires exactly one instance of each selected fixed-joint TF publisher;
+missing or duplicate fixed TF ownership keeps readiness false.
+
+The torque/state endpoint has a restricted passive-publisher compatibility rule.
+The node declares a typed string-array parameter with an effective empty default;
+the pose config does not override it. Only this guarded launch passes the exact
+`/odom_publisher` identity because the audited
+`JetRover_Mecanum` vendor node advertises the topic generically while its sole
+publish call is confined to the Ackermann steering branch. The guard enumerates
+namespace-qualified endpoint owners; it rejects duplicates, similar names,
+unknown publishers, unresolved identities and graph-query failures. This is not
+a `publisher_count <= 2` rule and does not relax position-command ownership.
+
+The audited command endpoint is
+`/ros_robot_controller/bus_servo/set_position` with
+`ros_robot_controller_msgs/msg/ServosPosition`; duration is seconds and positions
+are pulse units. Defaults are `dry_run:=true`, `confirmed:=false`, and
+`arm_torque_confirmed:=false`, so the guard does not create a servo command
+publisher. For a later separately authorized arm operation, the third gate
+permits a fail-closed sequence: read current pulses, preload them through the sole
+controller owner, enable torque, verify all four torque states and reject a
+position jump, then send `vendor_init`. The pose command limit defaults to one,
+FAULT never automatically retries, and node exit does not unload the servos.
+Readiness requires measured position feedback; time-only readiness is disabled by
+default.
+
+`camera_pose_guard_only.launch.py` starts only the guard and selected four
+fixed-joint TF publishers. It never starts red-marker homing, a chassis
+controller, or a `/cmd_vel` publisher. Its defaults are non-actuating:
+
+```bash
+ros2 launch robot_mission camera_pose_guard_only.launch.py
+```
+
+Do not add all three real-arm confirmations until a separately approved hardware
+test. Starting `ros_robot_controller` is hardware-facing and is intentionally
+outside this launch.
+
 Project-owned ROS2 utilities for M1. The first executable, `preflight`, performs
 read-only graph, lifecycle, action-interface, and TF checks. It does not create a
 motion publisher or navigation action client.
@@ -34,6 +92,35 @@ ros2 run robot_mission motion_smoke_test
 
 Only add `--ros-args -p confirmed:=true` after a fresh approval for that specific
 wheels-raised test, with the mechanism clear and an operator at emergency power.
+
+## First ground motion pulse
+
+`ground_motion_pulse` reuses the same hard-limited publisher, graph conflict
+checks, signal handling and mandatory zero cleanup as `motion_smoke_test`, but is
+an explicitly named ground-test entry point. It commands only forward
+`linear.x=0.03 m/s` for no more than 0.3 seconds, then publishes zero for at least
+two seconds. Unconfirmed invocation only prints the plan:
+
+```bash
+ros2 run robot_mission ground_motion_pulse
+```
+
+Only add `--ros-args -p confirmed:=true` immediately after approval for that one
+ground pulse, with a clear floor and the operator controlling the physical stop.
+
+If that 0.03 m/s pulse completes in software but produces no visible ground
+motion, `ground_deadband_probe` is the next diagnostic stage. It is independently
+hard-limited to forward `linear.x=0.08 m/s` for at most 0.25 seconds (ideal travel
+at most 0.02 m), followed by the same two-second zero tail. Capture
+`/ros_robot_controller/set_motor` during the probe to distinguish ROS translation
+failure from a downstream driver, power, or mechanical issue:
+
+```bash
+ros2 run robot_mission ground_deadband_probe
+```
+
+The unconfirmed command above only prints and refuses. A confirmed invocation is
+a new physical test and requires its own immediate approval.
 
 ## Turn-test order
 
@@ -108,10 +195,19 @@ Its exact composition, defaults, exclusions and remaining shutdown risks are in
 ## Gated RGB-D RTAB-Map bringup
 
 `rgbd_rtabmap_bringup.launch.py` composes the no-LiDAR camera, external odometry,
-fixed-arm TF and RTAB-Map path. It defaults `fixed_pose_confirmed:=false`; in that
-state the initial read-only gate exits before any hardware-facing include starts.
-Do not set it true unless the arm physically matches the documented vendor
-`horizontal` pose and the ROS domain is clear of duplicate bringup nodes.
+fixed-arm TF and RTAB-Map path. `camera_pose:=vendor_init` is the default and is
+the versioned `SLAM_POSE_V1`; `vendor_horizontal` remains available only for a
+robot deliberately placed in the `horizontal.d6a` pose. The launch defaults
+`fixed_pose_confirmed:=false`, so the initial read-only gate exits before any
+hardware-facing include starts.
+
+There is no automatic real-servo position verification. Do not set
+`fixed_pose_confirmed:=true` unless an operator has manually confirmed that the
+physical arm matches the selected `camera_pose` and the ROS domain is clear of
+duplicate bringup nodes. The ready gate compares the composed
+`base_link -> depth_cam_link` TF with the selected YAML, but that proves only TF
+configuration consistency. The values are nominal vendor-URDF/FK extrinsics, not
+a camera extrinsic calibration. Stop SLAM immediately if the arm moves.
 
 The launch never passes RTAB-Map `-d`, so its configurable database is not deleted
 on startup. See `docs/static_camera_tf_provenance.md` and

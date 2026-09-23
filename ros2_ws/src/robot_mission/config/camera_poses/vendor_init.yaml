@@ -1,0 +1,72 @@
+pose_name: vendor_init
+slam_pose_id: SLAM_POSE_V1
+default_for_slam: true
+action_group: init
+servo_targets:
+  Servo1: 500
+  Servo2: 765
+  Servo3: 15
+  Servo4: 150
+joint_angles_deg: [0.0, -63.6, 116.4, 84.0]
+joint_angles_rad:
+  - 0.0
+  - -1.110029404268394
+  - 2.031563249321400
+  - 1.466076571675237
+
+transforms:
+  base_link_to_depth_cam_link:
+    parent_frame: base_link
+    child_frame: depth_cam_link
+    xyz: [0.093787390048285, 0.0, 0.234390577130383]
+    rpy: [0.0, 0.816814089933346, 0.0]
+    quaternion:
+      x: 0.0
+      y: 0.397147890634780
+      z: 0.0
+      w: 0.917754625683981
+  base_footprint_to_depth_cam_link:
+    parent_frame: base_footprint
+    child_frame: depth_cam_link
+    xyz: [0.093787390048285, 0.0, 0.350481659288058]
+    rpy: [0.0, 0.816814089933346, 0.0]
+    quaternion:
+      x: 0.0
+      y: 0.397147890634780
+      z: 0.0
+      w: 0.917754625683981
+
+fixed_joints:
+  - name: joint1
+    parent_frame: base_link
+    child_frame: link1
+    xyz: [0.0251328065010765, 0.0, 0.0774026880954513]
+    rpy: [0.0, 0.0, 0.0]
+  - name: joint2
+    parent_frame: servo_link1
+    child_frame: link2
+    xyz: [0.0, 0.0, 0.0338648012164686]
+    rpy: [0.0, -1.110029404268394, 0.0]
+  - name: joint3
+    parent_frame: link2
+    child_frame: link3
+    xyz: [0.0, 0.0, 0.129416446394797]
+    rpy: [0.0, 2.031563249321400, 0.0]
+  - name: joint4
+    parent_frame: link3
+    child_frame: link4
+    xyz: [0.0, 0.0, 0.129444631186569]
+    rpy: [0.0, 1.466076571675237, 0.0]
+
+source:
+  action_group: /home/ubuntu/software/arm_pc/ActionGroups/init.d6a, ActionGroup row 1
+  action_duration_ms: 1000
+  pulses: "Servo1=500, Servo2=765, Servo3=15, Servo4=150"
+  boot_chain: start_app_node.service -> bringup.launch.py -> init_pose(action_name=init)
+  pulse_conversion: /home/ubuntu/ros2_ws/src/driver/servo_controller/servo_controller/joint_position_controller.py:11-55
+  joint_origins: /home/ubuntu/ros2_ws/src/simulations/jetrover_description/urdf/connect.urdf.xacro:4-20 and arm.urdf.xacro:127-251
+  camera_mount: /home/ubuntu/ros2_ws/src/simulations/jetrover_description/urdf/depth_camera.urdf.xacro:40-105
+notes: >-
+  SLAM_POSE_V1. This is the nominal URDF/FK transform for the vendor boot init
+  action, not a calibrated camera extrinsic. There is no closed-loop physical
+  servo-pose verification. Stop SLAM immediately if the arm moves.

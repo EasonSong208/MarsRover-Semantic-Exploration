@@ -37,11 +37,17 @@ def _fq_node_name(name: str, namespace: str) -> str:
 class MotionSmokeTest(Node):
     """Publish one bounded straight command and an extended zero tail."""
 
-    def __init__(self) -> None:
-        super().__init__('motion_smoke_test')
+    def __init__(
+        self,
+        node_name: str = 'motion_smoke_test',
+        linear_x: float = SAFE_LINEAR_X,
+        nonzero_duration: float = MAX_NONZERO_DURATION,
+    ) -> None:
+        super().__init__(node_name)
+        self._command_linear_x = linear_x
         self.declare_parameter('confirmed', False)
-        self.declare_parameter('linear_x', SAFE_LINEAR_X)
-        self.declare_parameter('nonzero_duration', MAX_NONZERO_DURATION)
+        self.declare_parameter('linear_x', linear_x)
+        self.declare_parameter('nonzero_duration', nonzero_duration)
         self.declare_parameter('publish_rate_hz', PUBLISH_RATE_HZ)
         self.declare_parameter('zero_duration', MIN_ZERO_DURATION)
         self._publisher = None
@@ -70,6 +76,10 @@ class MotionSmokeTest(Node):
             f'{PUBLISH_RATE_HZ:.1f} Hz')
         print(f'  zero cleanup: >= {parameters.zero_duration:.3f} s')
         print('  requires wheels raised, clear mechanism, and operator stop access')
+
+    def parameter_errors(self, parameters: SmokeParameters) -> tuple[str, ...]:
+        """Apply the wheels-raised pulse's immutable parameter policy."""
+        return validate_parameters(parameters)
 
     def wait_for_graph_discovery(self) -> bool:
         """Wait for two stable controller-chain graph snapshots."""
@@ -136,7 +146,7 @@ class MotionSmokeTest(Node):
     def publish_nonzero(self, duration: float) -> None:
         """Publish the sole permitted nonzero command."""
         sample_count = math.ceil(duration * PUBLISH_RATE_HZ)
-        self._publish_at_rate(SAFE_LINEAR_X, sample_count, True)
+        self._publish_at_rate(self._command_linear_x, sample_count, True)
 
     def publish_zero_cleanup(self, duration: float) -> None:
         """Best-effort zero publication for at least the configured duration."""
@@ -157,15 +167,15 @@ class MotionSmokeTest(Node):
             time.sleep(max(0.0, next_publish - time.monotonic()))
 
 
-def main(args=None) -> int:
+def run_once(node_type=MotionSmokeTest, args=None) -> int:
     """Validate, require confirmation, execute once, and always zero afterward."""
     rclpy.init(args=args)
-    node = MotionSmokeTest()
+    node = node_type()
     old_handlers = {}
     try:
         parameters = node.parameters()
         node.print_plan(parameters)
-        parameter_errors = validate_parameters(parameters)
+        parameter_errors = node.parameter_errors(parameters)
         if parameter_errors:
             for error in parameter_errors:
                 print(f'REFUSED: {error}')
@@ -215,6 +225,11 @@ def main(args=None) -> int:
             signal.signal(signum, handler)
         node.destroy_node()
         rclpy.shutdown()
+
+
+def main(args=None) -> int:
+    """Run the wheels-raised form of the bounded straight pulse."""
+    return run_once(args=args)
 
 
 if __name__ == '__main__':

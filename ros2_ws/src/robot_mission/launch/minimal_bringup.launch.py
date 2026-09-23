@@ -40,7 +40,7 @@ def generate_launch_description():
 
     # Normal mode retains the vendor joint-state path. Fixed-arm mode must not
     # start it: publishing zero joint defaults would conflict with the audited
-    # static horizontal-pose transforms owned by the RGB-D SLAM launch.
+    # selected fixed-pose transforms owned by the RGB-D SLAM launch.
     robot_description = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             _vendor_launch('jetrover_description',

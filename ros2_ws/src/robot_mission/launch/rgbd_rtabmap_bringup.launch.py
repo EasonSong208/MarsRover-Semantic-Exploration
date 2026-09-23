@@ -1,4 +1,4 @@
-"""Safely gate a no-LiDAR RGB-D RTAB-Map bringup on the fixed arm pose."""
+"""Safely gate a no-LiDAR RGB-D RTAB-Map bringup on a named fixed arm pose."""
 
 from functools import partial
 import os
@@ -7,7 +7,7 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument, EmitEvent, IncludeLaunchDescription, LogInfo,
-    RegisterEventHandler, TimerAction,
+    OpaqueFunction, RegisterEventHandler, TimerAction,
 )
 from launch.conditions import IfCondition
 from launch.event_handlers import OnProcessExit
@@ -19,6 +19,9 @@ from launch_ros.parameter_descriptions import ParameterValue
 import yaml
 
 
+KNOWN_CAMERA_POSES = ('vendor_init', 'vendor_horizontal')
+
+
 def _on_gate_exit(event, _context, *, phase, success_actions):
     if event.returncode == 0:
         return success_actions
@@ -28,17 +31,35 @@ def _on_gate_exit(event, _context, *, phase, success_actions):
     ]
 
 
-def _load_fixed_joints():
+def _load_camera_pose(pose_name):
+    if pose_name not in KNOWN_CAMERA_POSES:
+        known = ', '.join(KNOWN_CAMERA_POSES)
+        raise RuntimeError(
+            f'unknown camera_pose {pose_name!r}; expected one of: {known}')
     share = get_package_share_directory('robot_mission')
-    path = os.path.join(share, 'config', 'fixed_camera_extrinsics.yaml')
+    path = os.path.join(share, 'config', 'camera_poses', f'{pose_name}.yaml')
     with open(path, encoding='utf-8') as stream:
         data = yaml.safe_load(stream)
-    if data.get('pose_name') != 'vendor_horizontal':
-        raise RuntimeError('fixed camera pose must be vendor_horizontal')
-    return data['fixed_joints']
+    if data.get('pose_name') != pose_name:
+        raise RuntimeError(
+            f'camera pose file {path} declares {data.get("pose_name")!r}, '
+            f'not {pose_name!r}')
+    return data
 
 
-def generate_launch_description():
+def _format_number(value):
+    return f'{float(value):g}'
+
+
+def _launch_setup(context):
+    camera_pose = LaunchConfiguration('camera_pose').perform(context)
+    pose = _load_camera_pose(camera_pose)
+    servo_targets = [
+        pose['servo_targets'][f'Servo{index}'] for index in range(1, 5)
+    ]
+    joint_angles_deg = pose['joint_angles_deg']
+    nominal_transform = pose['transforms']['base_link_to_depth_cam_link']
+
     use_sim_time = LaunchConfiguration('use_sim_time')
     database_path = LaunchConfiguration('database_path')
     base_frame = LaunchConfiguration('base_frame')
@@ -54,32 +75,23 @@ def generate_launch_description():
     fixed_pose_confirmed = LaunchConfiguration('fixed_pose_confirmed')
     qos = LaunchConfiguration('qos')
 
-    arguments = [
-        DeclareLaunchArgument('use_sim_time', default_value='false'),
-        DeclareLaunchArgument(
-            'database_path',
-            default_value=[EnvironmentVariable('HOME'), '/.ros/rtabmap.db']),
-        DeclareLaunchArgument('base_frame', default_value='base_footprint'),
-        DeclareLaunchArgument('odom_frame', default_value='odom'),
-        DeclareLaunchArgument('map_frame', default_value='map'),
-        DeclareLaunchArgument(
-            'camera_frame', default_value='depth_cam_color_optical_frame'),
-        DeclareLaunchArgument(
-            'rgb_topic', default_value='/depth_cam/rgb/image_raw'),
-        DeclareLaunchArgument(
-            'depth_topic', default_value='/depth_cam/depth/image_raw'),
-        DeclareLaunchArgument(
-            'camera_info_topic', default_value='/depth_cam/rgb/camera_info'),
-        DeclareLaunchArgument('publish_tf', default_value='true'),
-        DeclareLaunchArgument('use_rviz', default_value='false'),
-        DeclareLaunchArgument('use_static_camera_tf', default_value='true'),
-        DeclareLaunchArgument('fixed_pose_confirmed', default_value='false'),
-        DeclareLaunchArgument('qos', default_value='2'),
-    ]
-
     common_preflight = {
+        'camera_pose': camera_pose,
+        'loaded_camera_pose': pose['pose_name'],
+        'known_camera_poses': list(KNOWN_CAMERA_POSES),
         'fixed_pose_confirmed': ParameterValue(
             fixed_pose_confirmed, value_type=bool),
+        'use_static_camera_tf': ParameterValue(
+            use_static_camera_tf, value_type=bool),
+        'expected_servo_targets': servo_targets,
+        'expected_joint_angles_deg': joint_angles_deg,
+        'expected_camera_xyz': nominal_transform['xyz'],
+        'expected_camera_quaternion': [
+            nominal_transform['quaternion'][key]
+            for key in ('x', 'y', 'z', 'w')
+        ],
+        'fixed_camera_parent_frame': nominal_transform['parent_frame'],
+        'camera_link_frame': nominal_transform['child_frame'],
         'odom_topic': '/odom',
         'rgb_topic': rgb_topic,
         'depth_topic': depth_topic,
@@ -118,7 +130,7 @@ def generate_launch_description():
     )
 
     static_joint_nodes = []
-    for joint in _load_fixed_joints():
+    for joint in pose['fixed_joints']:
         xyz = [str(value) for value in joint['xyz']]
         rpy = [str(value) for value in joint['rpy']]
         static_joint_nodes.append(Node(
@@ -200,4 +212,46 @@ def generate_launch_description():
                 _on_gate_exit, phase='ready',
                 success_actions=ready_stage))),
     ]
-    return LaunchDescription(arguments + handlers + [pre_start])
+    logs = [
+        LogInfo(msg=f'Selected fixed camera pose: {pose["pose_name"]}'),
+        LogInfo(msg='Expected servo targets: ' + ','.join(
+            str(value) for value in servo_targets)),
+        LogInfo(msg='Expected joint angles: ' + ','.join(
+            _format_number(value) for value in joint_angles_deg) + ' deg'),
+        LogInfo(msg=(
+            'WARNING: no real servo feedback closed loop is available; '
+            'the physical pose is not automatically verified')),
+        LogInfo(msg=(
+            'WARNING: fixed_pose_confirmed=true means manual operator '
+            'confirmation of the selected pose')),
+        LogInfo(msg=(
+            'WARNING: stop SLAM immediately if the arm is moved')),
+    ]
+    return logs + handlers + [pre_start]
+
+
+def generate_launch_description():
+    arguments = [
+        DeclareLaunchArgument('use_sim_time', default_value='false'),
+        DeclareLaunchArgument(
+            'database_path',
+            default_value=[EnvironmentVariable('HOME'), '/.ros/rtabmap.db']),
+        DeclareLaunchArgument('base_frame', default_value='base_footprint'),
+        DeclareLaunchArgument('odom_frame', default_value='odom'),
+        DeclareLaunchArgument('map_frame', default_value='map'),
+        DeclareLaunchArgument(
+            'camera_frame', default_value='depth_cam_color_optical_frame'),
+        DeclareLaunchArgument(
+            'rgb_topic', default_value='/depth_cam/rgb/image_raw'),
+        DeclareLaunchArgument(
+            'depth_topic', default_value='/depth_cam/depth/image_raw'),
+        DeclareLaunchArgument(
+            'camera_info_topic', default_value='/depth_cam/rgb/camera_info'),
+        DeclareLaunchArgument('publish_tf', default_value='true'),
+        DeclareLaunchArgument('use_rviz', default_value='false'),
+        DeclareLaunchArgument('use_static_camera_tf', default_value='true'),
+        DeclareLaunchArgument('camera_pose', default_value='vendor_init'),
+        DeclareLaunchArgument('fixed_pose_confirmed', default_value='false'),
+        DeclareLaunchArgument('qos', default_value='2'),
+    ]
+    return LaunchDescription(arguments + [OpaqueFunction(function=_launch_setup)])

@@ -16,6 +16,8 @@ setup(
          ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
+        (os.path.join('share', package_name, 'config', 'camera_poses'),
+         glob('config/camera_poses/*.yaml')),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
     ],
     install_requires=['setuptools'],
@@ -27,9 +29,13 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'camera_pose_guard = robot_mission.camera_pose_guard:main',
+            'ground_deadband_probe = robot_mission.ground_deadband_probe:main',
+            'ground_motion_pulse = robot_mission.ground_motion_pulse:main',
             'motion_smoke_test = robot_mission.motion_smoke_test:main',
             'out_and_back_test = robot_mission.out_and_back_test:main',
             'preflight = robot_mission.preflight:main',
+            'red_marker_homing_test = robot_mission.red_marker_homing_node:main',
             'rgbd_rtabmap_preflight = robot_mission.rgbd_rtabmap_preflight:main',
             'turn_step_test = robot_mission.turn_step_test:main',
         ],
