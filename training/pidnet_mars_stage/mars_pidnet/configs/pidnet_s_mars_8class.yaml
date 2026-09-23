@@ -1,0 +1,12 @@
+model: pidnet_s
+num_classes: 8
+input_size: [640, 384]
+ignore_label: 255
+padding: {top: 12, bottom: 12, left: 0, right: 0, rgb_value: 0, mask_value: 255}
+freeze_backbone: false
+freeze_batch_norm_stats: false
+base_lr: 0.001
+head_lr_multiplier: 10.0
+class_weights: null
+boundary_loss_weight: 1.0
+initialization: random

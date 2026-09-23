@@ -1,0 +1,24 @@
+ignore_label: 255
+fine:
+  0: unknown_background
+  1: traversable_ground
+  2: hill_candidate
+  3: crater_candidate
+  4: step_candidate
+  5: rover_red
+  6: rover_blue
+  7: rover_yellow
+coarse:
+  0: unknown_background
+  1: traversable_ground
+  2: hill_candidate
+  3: crater_candidate
+  4: step_candidate
+  5: rover
+fine_to_coarse: {5: 5, 6: 5, 7: 5}
+hazard5:
+  0: other
+  1: hill_candidate
+  2: crater_candidate
+  3: step_candidate
+  4: rover
