@@ -78,3 +78,6 @@ references/official/*.pdf
 Thumbs.db
 .vscode/
 .idea/
+
+# Python build artifacts
+*.egg-info/
