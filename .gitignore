@@ -75,3 +75,9 @@ checkpoints/
 Thumbs.db
 .vscode/
 .idea/
+
+# Training stage outputs
+pidnet_mars_stage/upstream/
+pidnet_mars_stage/outputs/
+training/pidnet_mars_stage/upstream/
+training/pidnet_mars_stage/outputs/
