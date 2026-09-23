@@ -1,24 +1,50 @@
-# Python
+# ROS2 and build output (at the repository root or in any workspace)
+build/
+install/
+log/
+**/build/
+**/install/
+**/log/
+
+# Python caches and local environments
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 .venv/
 venv/
+
+# Machine-local environment, credentials, and keys
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.jks
+id_rsa*
+id_ed25519*
+secrets.*
+configs/local.*
+!configs/local.example.*
 
-# ROS2
-ros2_ws/build/
-ros2_ws/install/
-ros2_ws/log/
-
-# Data
+# Runtime data and large generated artifacts
 data/
 datasets/
 rosbags/
 *.bag
 *.db3
 *.mcap
-
-# Models
+runs/
+wandb/
+logs/
 checkpoints/
 *.pt
 *.pth
@@ -26,28 +52,30 @@ checkpoints/
 *.engine
 *.safetensors
 
-# Logs
-runs/
-wandb/
-logs/
-
-# Videos / raw images
+# Videos and raw images; documentation assets may be committed intentionally
 *.mp4
 *.avi
 *.mov
 *.jpg
 *.jpeg
 *.png
-
-# Allow documentation assets
 !docs/**/*.jpg
 !docs/**/*.jpeg
 !docs/**/*.png
 
-# OS / IDE
+# Temporary, editor, and OS files
+*.tmp
+*.temp
+*.swp
+*.swo
+*.bak
+*~
+.cache/
 .DS_Store
+Thumbs.db
 .vscode/
 .idea/
+
 # ROS 2 generated directories
 ros2_ws/build/
 ros2_ws/install/
@@ -61,4 +89,3 @@ __pycache__/
 # ROS bag and runtime data
 *.bag
 *.db3
-*.mcap
