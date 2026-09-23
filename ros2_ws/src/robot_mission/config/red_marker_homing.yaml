@@ -1,0 +1,71 @@
+red_marker_homing_test:
+  ros__parameters:
+    confirmed: false
+    dry_run: true
+    # This independent gate must be true before a /cmd_vel publisher can exist.
+    enable_base_motion: false
+    rgb_topic: /depth_cam/rgb/image_raw
+    depth_topic: /depth_cam/depth/image_raw
+    camera_info_topic: /depth_cam/rgb/camera_info
+    cmd_vel_topic: /cmd_vel
+    output_directory: /tmp/red_marker_homing_test
+    log_odom: false
+    require_camera_pose_ready: true
+    camera_pose_ready_topic: /camera_pose_ready
+    # Zero means wait indefinitely; it does not make missing ready terminal.
+    camera_pose_ready_timeout_sec: 0.0
+
+    forward_distance_nominal: 0.25
+    forward_speed: 0.05
+    turn_angle_deg: 30.0
+    turn_speed: 0.15
+    yaw_kp: 0.8
+    yaw_max_speed: 0.08
+    yaw_min_speed: 0.025
+    yaw_pixel_tolerance: 8.0
+    depth_relative_tolerance: 0.03
+
+    backup_speed: -0.03
+    backup_pulse_duration: 0.35
+    backup_settle_duration: 0.50
+    segment_stop_duration: 0.50
+    max_backup_pulses: 40
+
+    sensor_timeout: 0.5
+    marker_lost_timeout: 0.5
+    total_timeout: 90.0
+    zero_hold_duration: 2.0
+    reference_collection_duration: 2.0
+    min_reference_samples: 20
+    reference_max_u_mad: 4.0
+    reference_max_depth_mad_fraction: 0.02
+    final_stable_duration: 1.0
+    state_timeout: 15.0
+    sync_queue_size: 10
+    # Deprecated seconds-based alias retained for older invocations.
+    max_rgb_depth_stamp_delta: 0.07
+    sync_mode: direct_slop
+    direct_slop_ms: 70.0
+    fixed_offset_slop_ms: 25.0
+    # corrected_depth_stamp = original_depth_stamp + this value.
+    depth_stamp_offset_ms: 0.0
+    compare_sync_modes: true
+    estimate_offset: true
+    offset_estimation_samples: 200
+    sync_buffer_max_age_ms: 1000.0
+    depth_freshness_limit_ms: 150.0
+    sensor_warn_timeout_ms: 1000.0
+    sensor_stop_timeout_ms: 500.0
+    sensor_log_throttle_ms: 2000.0
+    sync_stats_period_sec: 5.0
+
+    hsv_low_1: [0, 100, 60]
+    hsv_high_1: [12, 255, 255]
+    hsv_low_2: [168, 100, 60]
+    hsv_high_2: [179, 255, 255]
+    morphology_kernel_size: 5
+    morphology_iterations: 1
+    depth_erode_kernel_size: 7
+    min_marker_area: 500.0
+    max_marker_area: 120000.0
+    min_valid_depth_pixels: 50

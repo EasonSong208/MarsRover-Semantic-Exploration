@@ -76,6 +76,15 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Python build artifacts
+*.egg-info/
+
+# Training stage outputs
+pidnet_mars_stage/upstream/
+pidnet_mars_stage/outputs/
+training/pidnet_mars_stage/upstream/
+training/pidnet_mars_stage/outputs/
+
 # ROS 2 generated directories
 ros2_ws/build/
 ros2_ws/install/

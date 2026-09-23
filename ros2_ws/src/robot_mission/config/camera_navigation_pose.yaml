@@ -1,0 +1,57 @@
+camera_pose_guard:
+  ros__parameters:
+    pose_name: vendor_init
+    camera_pose_name: vendor_init
+
+    # Audited from /home/ubuntu/software/arm_pc/ActionGroups/init.d6a row 1.
+    servo_ids: [1, 2, 3, 4]
+    servo_positions: [500, 765, 15, 150]
+    move_duration_sec: 1.0
+    settle_time_sec: 2.0
+
+    command_timeout_sec: 3.0
+    controller_wait_timeout_sec: 0.0
+    retry_period_sec: 2.0
+    # One process invocation may publish the target pose only once by default.
+    max_pose_command_attempts: 1
+
+    # Physical position feedback was validated on 2026-07-19. Time-only ready is
+    # disabled for the real arm path.
+    enable_feedback_check: true
+    allow_time_based_ready: false
+    feedback_timeout_sec: 5.0
+    position_tolerance: 10
+
+    reassert_pose: false
+    reassert_period_sec: 10.0
+
+    # All three must permit a command. Defaults never create a servo publisher.
+    dry_run: true
+    confirmed: false
+    arm_torque_confirmed: false
+
+    # Arming reads current pulses, preloads them while unloaded, enables torque,
+    # then verifies torque=1 and rejects a position jump before pose motion.
+    arm_feedback_timeout_sec: 10.0
+    preload_settle_sec: 0.5
+    torque_settle_sec: 0.5
+    torque_enable_position_jump_tolerance: 10
+
+    command_topic: /ros_robot_controller/bus_servo/set_position
+    torque_command_topic: /ros_robot_controller/bus_servo/set_state
+    intermediate_topic: /servo_controller
+    feedback_service: /ros_robot_controller/bus_servo/get_state
+    expected_controller_node: /ros_robot_controller
+    ready_topic: /camera_pose_ready
+    state_topic: /camera_pose_guard/state
+    log_throttle_sec: 2.0
+
+    # These four publishers are the only fixed revolute-joint TF owners allowed
+    # by camera_guarded_red_marker_homing.launch.py. Missing or duplicate nodes
+    # keep camera_pose_ready=false.
+    require_unique_fixed_tf: true
+    fixed_tf_node_names:
+      - fixed_joint1_tf
+      - fixed_joint2_tf
+      - fixed_joint3_tf
+      - fixed_joint4_tf

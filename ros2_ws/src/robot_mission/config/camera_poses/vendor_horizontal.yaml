@@ -1,0 +1,71 @@
+pose_name: vendor_horizontal
+default_for_slam: false
+action_group: horizontal
+servo_targets:
+  Servo1: 500
+  Servo2: 750
+  Servo3: 0
+  Servo4: 375
+joint_angles_deg: [0.0, -60.0, 120.0, 30.0]
+joint_angles_rad:
+  - 0.0
+  - -1.047197551196598
+  - 2.094395102393195
+  - 0.523598775598299
+
+transforms:
+  base_link_to_depth_cam_link:
+    parent_frame: base_link
+    child_frame: depth_cam_link
+    xyz: [0.090170699365528, 0.0, 0.291404054800367]
+    rpy: [0.0, 0.0, 0.0]
+    quaternion:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+  base_footprint_to_depth_cam_link:
+    parent_frame: base_footprint
+    child_frame: depth_cam_link
+    xyz: [0.090170699365528, 0.0, 0.407495136958042]
+    rpy: [0.0, 0.0, 0.0]
+    quaternion:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+
+fixed_joints:
+  - name: joint1
+    parent_frame: base_link
+    child_frame: link1
+    xyz: [0.0251328065010765, 0.0, 0.0774026880954513]
+    rpy: [0.0, 0.0, 0.0]
+  - name: joint2
+    parent_frame: servo_link1
+    child_frame: link2
+    xyz: [0.0, 0.0, 0.0338648012164686]
+    rpy: [0.0, -1.047197551196598, 0.0]
+  - name: joint3
+    parent_frame: link2
+    child_frame: link3
+    xyz: [0.0, 0.0, 0.129416446394797]
+    rpy: [0.0, 2.094395102393195, 0.0]
+  - name: joint4
+    parent_frame: link3
+    child_frame: link4
+    xyz: [0.0, 0.0, 0.129444631186569]
+    rpy: [0.0, 0.523598775598299, 0.0]
+
+source:
+  action_group: /home/ubuntu/software/arm_pc/ActionGroups/horizontal.d6a, ActionGroup row 1
+  action_duration_ms: 1500
+  pulses: "Servo1=500, Servo2=750, Servo3=0, Servo4=375"
+  pulse_conversion: /home/ubuntu/ros2_ws/src/driver/servo_controller/servo_controller/joint_position_controller.py:11-55
+  joint_origins: /home/ubuntu/ros2_ws/src/simulations/jetrover_description/urdf/connect.urdf.xacro:4-20 and arm.urdf.xacro:127-251
+  camera_mount: /home/ubuntu/ros2_ws/src/simulations/jetrover_description/urdf/depth_camera.urdf.xacro:40-105
+notes: >-
+  Retained as an optional nominal URDF/FK pose. It is valid only after the
+  horizontal.d6a action has been played and the operator has confirmed the
+  physical pose. It is not the default SLAM pose and is not a calibrated camera
+  extrinsic.

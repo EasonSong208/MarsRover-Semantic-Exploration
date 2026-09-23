@@ -10,13 +10,43 @@
   <buildtool_depend>ament_python</buildtool_depend>
 
   <exec_depend>lifecycle_msgs</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>cv_bridge</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>message_filters</exec_depend>
+  <exec_depend>nav2_common</exec_depend>
   <exec_depend>rclpy</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>ros_robot_controller_msgs</exec_depend>
+  <exec_depend>rtabmap_slam</exec_depend>
+  <exec_depend>rtabmap_sync</exec_depend>
+  <exec_depend>rviz2</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
   <exec_depend>tf2_ros_py</exec_depend>
+  <exec_depend>xacro</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-opencv</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+
+  <!-- Runtime dependencies of minimal_bringup.launch.py. These are supplied by
+       the vendor Jetson workspace; this project does not replace their drivers. -->
+  <exec_depend>controller</exec_depend>
+  <exec_depend>imu_filter_madgwick</exec_depend>
+  <exec_depend>jetrover_description</exec_depend>
+  <exec_depend>peripherals</exec_depend>
+  <exec_depend>robot_localization</exec_depend>
+  <exec_depend>ros_robot_controller</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
   <test_depend>python3-pytest</test_depend>
+  <test_depend>python3-yaml</test_depend>
 
   <export>
     <build_type>ament_python</build_type>
