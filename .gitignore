@@ -52,9 +52,6 @@ checkpoints/
 *.engine
 *.safetensors
 
-# Local vendor reference bundle (large binary PDFs; inventory is kept in docs/)
-references/official/*.pdf
-
 # Videos and raw images; documentation assets may be committed intentionally
 *.mp4
 *.avi
@@ -79,9 +76,14 @@ Thumbs.db
 .vscode/
 .idea/
 
-p
 # Python build artifacts
 *.egg-info/
+
+# Training stage outputs
+pidnet_mars_stage/upstream/
+pidnet_mars_stage/outputs/
+training/pidnet_mars_stage/upstream/
+training/pidnet_mars_stage/outputs/
 
 # ROS 2 generated directories
 ros2_ws/build/
