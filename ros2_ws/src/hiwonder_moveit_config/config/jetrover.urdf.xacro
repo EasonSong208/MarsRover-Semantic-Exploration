@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="jetrover">
+    <xacro:arg name="initial_positions_file" default="initial_positions.yaml" />
+
+    <!-- Import jetrover urdf file -->
+    <xacro:include filename="$(find jetrover_description)/urdf/jetrover.xacro" />
+    <!-- <xacro:include filename="$(find robot_gazebo)/urdf/robot.gazebo.xacro" /> -->
+
+
+    <!-- Import control_xacro -->
+    <xacro:include filename="jetrover.ros2_control.xacro" />
+
+
+    <xacro:jetrover_ros2_control name="FakeSystem" initial_positions_file="$(arg initial_positions_file)"/>
+
+</robot>

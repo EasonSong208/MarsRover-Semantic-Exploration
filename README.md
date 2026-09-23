@@ -35,15 +35,10 @@ it is not yet the final 20 m motion test. See:
 ## Directory Structure
 
 ```text
-docs/           Project notes, hardware docs, decisions
-ros2_ws/        ROS2 workspace
-robot/          Low-level robot scripts and configs
-data_tools/     Demonstration recording and replay
-models/         Learning / inference code
-experiments/    Experiment logs
-configs/        Machine-specific configs
-scripts/        Setup and utility scripts
-tests/          Basic tests
+docs/           Project notes, architecture records, decisions
+ros2_ws/        ROS2 workspace (robot_mission, semantic_perception)
+configs/        Machine-local config template (local.example.yaml)
+vendor_patches/ Documented vendor-driver patches
 ```
 
 
