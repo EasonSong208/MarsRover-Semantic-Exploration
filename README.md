@@ -55,3 +55,14 @@ Read joint / encoder state.
 Save timestamped joint states.
 Publish joint states to ROS2.
 Record one reproducible demo.
+
+## License
+
+Original code authored for this repository is licensed under the MIT License.
+See [LICENSE](LICENSE) for details.
+
+Third-party and vendor source code included in this repository, including the
+Hiwonder ROS 2 packages under `ros2_ws/src/`, remains subject to its original
+licensing terms and is not relicensed under the MIT License by this repository.
+
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for details.
