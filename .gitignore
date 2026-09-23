@@ -98,3 +98,9 @@ __pycache__/
 # ROS bag and runtime data
 *.bag
 *.db3
+
+# Media assets referenced by README
+!media/**/*.jpg
+!media/**/*.jpeg
+!media/**/*.png
+!media/**/*.mp4

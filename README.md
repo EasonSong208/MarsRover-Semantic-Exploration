@@ -18,7 +18,7 @@ This repository contains the robot-side software, ROS 2 integration, semantic pe
 
 Demo
 
-🎬 Watch the ~1 minute real-robot demo
+🎬 [Watch the ~1 minute real-robot demo](media/1.mp4)
 
 The demo shows the physical JetRover running the integrated perception, mapping, navigation, and mission stack in the experimental environment.
 
